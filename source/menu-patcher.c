@@ -1,68 +1,13 @@
 #include <stdio.h>
 #include <ogcsys.h>
 
+#include "gui.h"
+#include "restart.h"
 #include "sysmenu.h"
 #include "sys.h"
 #include "video.h"
 #include "wpad.h"
 
-/* Constants */
-#define CONSOLE_XCOORD		20
-#define CONSOLE_YCOORD		100
-
-#define REGION_MIN		0
-#define REGION_MAX		2
-
-
-void Restart(void)
-{
-	printf("\n    Restarting Wii...");
-	fflush(stdout);
-
-	/* Load system menu */
-	Sys_LoadMenu();
-}
-
-void Restart_Wait(void)
-{
-	printf("\n    Press any button to restart...");
-	fflush(stdout);
-
-	/* Wait for button */
-	Wpad_WaitButtons();
-
-	printf(" Restarting Wii...");
-	fflush(stdout);
-
-	/* Load system menu */
-	Sys_LoadMenu();
-}
-
-void ShowBanner(void)
-{
-	extern char banner_data[];
-
-	PNGUPROP imgProp;
-	IMGCTX ctx;
-
-	s32 ret;
-
-	/* Select PNG data */
-	ctx = PNGU_SelectImageFromBuffer(banner_data);
-	if (!ctx)
-		return;
-
-	/* Get image properties */
-	ret = PNGU_GetImageProperties(ctx, &imgProp);
-	if (ret != PNGU_OK)
-		return;
-
-	/* Draw image */
-	Video_DrawPng(ctx, imgProp, 0, 0);
-
-	/* Free image context */
-	PNGU_ReleaseImageContext(ctx);
-}
 
 int main(int argc, char **argv)
 {
@@ -77,11 +22,11 @@ int main(int argc, char **argv)
 	/* Set video mode */
 	Video_SetMode();
 
-	/* Show banner */
-	ShowBanner();
-
 	/* Initialize console */
-	Con_Init(CONSOLE_XCOORD, CONSOLE_YCOORD);
+	Gui_InitConsole();
+
+	/* Draw background */
+	Gui_DrawBackground();
 
 	/* Initialize Wiimote */
 	Wpad_Init();

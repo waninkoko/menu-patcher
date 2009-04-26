@@ -8,14 +8,9 @@
 static void *framebuffer = NULL;
 static GXRModeObj *vmode = NULL;
 
-void Con_Init(u32 x, u32 y)
+
+void Con_Init(u32 x, u32 y, u32 w, u32 h)
 {
-	u32 w, h;
-
-	/* Set console width and height */
-	w = vmode->fbWidth - (x * 2);
-	h = vmode->xfbHeight - (y + 20);
-
 	/* Create console in the framebuffer */
 	CON_InitEx(vmode, x, y, w, h);
 }
@@ -35,21 +30,16 @@ void Con_ClearLine(void)
 	printf("\r");
 	fflush(stdout);
 
-	/* Save cursor position */
-	printf("\x1b[s");
-	fflush(stdout);
-
 	/* Get console metrics */
 	CON_GetMetrics(&cols, &rows);
 
 	/* Erase line */
-	for (cnt = 0; cnt < cols; cnt++) {
+	for (cnt = 1; cnt < cols; cnt++) {
 		printf(" ");
 		fflush(stdout);
 	}
 
-	/* Load cursor position */
-	printf("\x1b[u");
+	printf("\r");
 	fflush(stdout);
 }
 
@@ -100,6 +90,20 @@ void Con_FillRow(u32 row, u32 color, u8 bold)
 	/* Set default color */
 	Con_BgColor(0, 0);
 	Con_FgColor(7, 1);
+}
+
+void Video_Configure(GXRModeObj *rmode)
+{
+	/* Configure the video subsystem */
+	VIDEO_Configure(rmode);
+
+	/* Setup video */
+	VIDEO_SetBlack(FALSE);
+	VIDEO_Flush();
+	VIDEO_WaitVSync();
+
+	if (rmode->viTVMode & VI_NON_INTERLACE)
+		VIDEO_WaitVSync();
 }
 
 void Video_SetMode(void)

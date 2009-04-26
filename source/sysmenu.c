@@ -1,12 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <malloc.h>
 #include <ogcsys.h>
 
+#include "identify.h"
 #include "state.h"
 #include "sys.h"
 #include "sysmenu_patches.h"
+#include "title.h"
 
 /* Externs */
 extern void unstub_start(u32);
@@ -25,28 +26,23 @@ typedef struct {
 	u32 unused[7];
 } dolhdr;
 
-/* Ticket structure */
-typedef struct {
-	sig_rsa2048 signature;
-	tik tik_data;
-} ticket;
-
 /* Constants */
 #define SYSMENU_ADDR		0x8132FF80
 #define SYSMENU_LEN		0x380000
 #define SYSMENU_TITLEID		0x100000002ULL
 
 
-void Sysmenu_Patch(u8 *dol, u32 len)
+void __Sysmenu_Patch(u8 *dol, u32 len)
 {
 	/* Apply system menu patches */
+	Sysmenu_PatchVersion(dol, len);
 	Sysmenu_PatchIOSReload(dol, len);
-	Sysmenu_PatchRegionFree(dol, len);
-	Sysmenu_PatchUpdateCheck(dol, len);
-	Sysmenu_PatchNocopySaves(dol, len);
+	Sysmenu_PatchRegion(dol, len);
+	Sysmenu_PatchUpdate(dol, len);
+	Sysmenu_PatchNocopy(dol, len);
 }
 
-s32 Sysmenu_Load(u32 *entry, u16 index)
+s32 __Sysmenu_Load(u32 *entry, u16 index)
 {
 	static dolhdr dol ATTRIBUTE_ALIGN(32);
 
@@ -97,85 +93,24 @@ s32 Sysmenu_Load(u32 *entry, u16 index)
 	return 0;
 }
 
-s32 Sysmenu_Identify(void)
-{
-	static ticket s_tik ATTRIBUTE_ALIGN(32);
-	signed_blob *p_certs = NULL, *p_tik = NULL, *p_tmd = NULL;
-
-	u32 certs_len, tik_len, tmd_len;
-	s32 ret;
-
-	/* Retrieve certificates */
-	ret = Sys_GetCerts(&p_certs, &certs_len);
-	if (ret < 0)
-		return ret;
-
-	/* Set ticket length */
-	tik_len = sizeof(s_tik);
-
-	memset(&s_tik, 0, tik_len);
-
-	/* Generate ticket */
-	strcpy(s_tik.tik_data.issuer, "Root-CA00000001-XS00000003");
-	memset(s_tik.tik_data.cidx_mask, 0xFF, 32);
-
-	s_tik.signature.type = ES_SIG_RSA2048;
-
-	/* Set pointer */
-	p_tik = (signed_blob *)&s_tik;
-
-	/* Retrieve TMD length */
-	ret = ES_GetStoredTMDSize(SYSMENU_TITLEID, &tmd_len);
-	if (ret < 0)
-		goto out;
-
-	/* Allocate memory */
-	p_tmd = (signed_blob *)memalign(32, tmd_len);
-	if (!p_tmd) {
-		ret = -1;
-		goto out;
-	}
-
-	/* Retrieve TMD */
-	ret = ES_GetStoredTMD(SYSMENU_TITLEID, p_tmd, tmd_len);
-	if (ret < 0)
-		goto out;
-
-	/* Identify as system menu */
-	ret = ES_Identify(p_certs, certs_len, p_tmd, tmd_len, p_tik, tik_len, NULL);
-
-out:
-	/* Free memory */
-	if (p_tmd)
-		free(p_tmd);
-
-	return ret;
-}
-
-s32 Sysmenu_Bootindex(void)
+s32 __Sysmenu_BootIndex(void)
 {
 	signed_blob *p_tmd = NULL;
+	tmd      *tmd_data = NULL;
 
 	u32 len;
 	s32 ret;
 
-	/* Retrieve TMD length */
-	ret = ES_GetStoredTMDSize(SYSMENU_TITLEID, &len);
-	if (ret < 0)
-		goto out;
-
-	/* Allocate memory */
-	p_tmd = (signed_blob *)memalign(32, len);
-	if (!p_tmd)
-		return -1;
-
 	/* Retrieve TMD */
-	ret = ES_GetStoredTMD(SYSMENU_TITLEID, p_tmd, len);
+	ret = Title_GetTMD(SYSMENU_TITLEID, &p_tmd, &len);
 	if (ret < 0)
 		goto out;
+
+	/* TMD data */
+	tmd_data = (tmd *)SIGNATURE_PAYLOAD(p_tmd);
 
 	/* Get boot index */
-	ret = ((tmd *)SIGNATURE_PAYLOAD(p_tmd))->boot_index;
+	ret = tmd_data->boot_index;
 
 out:
 	/* Free memory */
@@ -184,6 +119,7 @@ out:
 
 	return ret;
 }
+
 
 s32 Sysmenu_Launch(void)
 {
@@ -198,7 +134,7 @@ s32 Sysmenu_Launch(void)
 	}
 
 	/* Identify as system menu */
-	ret = Sysmenu_Identify();
+	ret = Identify_AsTitle(SYSMENU_TITLEID);
 	if (ret < 0) {
 		printf("[+] ERROR: Could not identify as system menu! (ret = %d)\n", ret);
 		return ret;
@@ -208,29 +144,28 @@ s32 Sysmenu_Launch(void)
 	fflush(stdout);
 
 	/* Get system menu boot index */
-	ret = Sysmenu_Bootindex();
+	ret = __Sysmenu_BootIndex();
 	if (ret < 0) {
-		printf("[+] ERROR: Could not retrieve boot index! (ret = %d)\n", ret);
+		printf(" ERROR! Could not retrieve boot index! (ret = %d)\n", ret);
 		return ret;
 	}
 
 	index = ret;
 
 	/* Load system menu */
-	ret = Sysmenu_Load(&entry, index);
+	ret = __Sysmenu_Load(&entry, index);
 	if (ret < 0) {
-		printf("[+] ERROR: Could not load system menu executable! (ret = %d)\n", ret);
+		printf(" ERROR! Could not load system menu executable! (ret = %d)\n", ret);
 		return ret;
 	}
-	printf(" OK!\n");
 
 	/* Patch system menu */
-	Sysmenu_Patch((u8 *)SYSMENU_ADDR, SYSMENU_LEN);
+	__Sysmenu_Patch((u8 *)SYSMENU_ADDR, SYSMENU_LEN);
 
 	/* Set state flags */
 	ret = State_ReturnToMenu();
 	if (ret < 0) {
-		printf("[+] ERROR: Could not set state flags! (ret = %d)\n", ret);
+		printf(" ERROR! Could not set state flags! (ret = %d)\n", ret);
 		return ret;
 	}
 

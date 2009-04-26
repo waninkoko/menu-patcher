@@ -2,9 +2,10 @@
 #define _SYSMENU_PATCHES_H_
 
 /* Prototypes */
+void Sysmenu_PatchVersion(u8 *, u32);
 void Sysmenu_PatchIOSReload(u8 *, u32); 
-void Sysmenu_PatchUpdateCheck(u8 *, u32);
-void Sysmenu_PatchRegionFree(u8 *, u32);
-void Sysmenu_PatchNocopySaves(u8 *, u32);
+void Sysmenu_PatchUpdate(u8 *, u32);
+void Sysmenu_PatchRegion(u8 *, u32);
+void Sysmenu_PatchNocopy(u8 *, u32);
 
 #endif

@@ -1,9 +1,9 @@
 	.rodata
-	.globl banner_data
+	.globl bgData
 	.balign 32
 
-banner_data:
-	.incbin "../data/banner"
+bgData:
+	.incbin "../data/background"
 
 
 #include "asm.h"

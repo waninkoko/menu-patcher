@@ -92,6 +92,15 @@ void __Sysmenu_PatchRegionPal(u8 *dol, u32 len)
 }
 
 
+void Sysmenu_PatchVersion(u8 *dol, u32 len)
+{
+	const char oldstr[] = "Ver. %d.%d%s";
+	const char newstr[] = "%d.%d%s cIOS";
+
+	/* Patch version string */
+	__Sysmenu_PatchApply(dol, len, oldstr, newstr, sizeof(oldstr));
+}
+
 void Sysmenu_PatchIOSReload(u8 *dol, u32 len)
 {
 	const u8 oldcode[] = { 0x7F, 0x06, 0xC3, 0x78, 0x7F, 0x25, 0xCB, 0x78, 0x38, 0x7E, 0x02, 0xC0, 0x4C, 0xC6, 0x31, 0x82 };
@@ -101,7 +110,7 @@ void Sysmenu_PatchIOSReload(u8 *dol, u32 len)
 	__Sysmenu_PatchApply(dol, len, oldcode, newcode, sizeof(oldcode));
 }
 
-void Sysmenu_PatchUpdateCheck(u8 *dol, u32 len)
+void Sysmenu_PatchUpdate(u8 *dol, u32 len)
 {
 	const u8 pattern[] = { 0x80, 0x65, 0x00, 0x50, 0x80, 0x85, 0x00, 0x54, 0xA0, 0xA5, 0x00, 0x58 };
 
@@ -124,7 +133,7 @@ void Sysmenu_PatchUpdateCheck(u8 *dol, u32 len)
 	}
 }
 
-void Sysmenu_PatchRegionFree(u8 *dol, u32 len)
+void Sysmenu_PatchRegion(u8 *dol, u32 len)
 {
 	const u8 pattern[] = { 0x7C, 0x60, 0x07, 0x74, 0x2C, 0x00, 0x00, 0x01, 0x41, 0x82,
 			       0x00, 0x30, 0x40, 0x80, 0x00, 0x10, 0x2C, 0x00, 0x00, 0x00 };
@@ -147,7 +156,7 @@ void Sysmenu_PatchRegionFree(u8 *dol, u32 len)
 	}
 }
 
-void Sysmenu_PatchNocopySaves(u8 *dol, u32 len)
+void Sysmenu_PatchNocopy(u8 *dol, u32 len)
 {
 	{
 		const u8 oldcode[] = { 0x54, 0x00, 0x07, 0xFF, 0x41, 0x82, 0x00, 0x1C, 0x80, 0x63, 0x00, 0x68 };
