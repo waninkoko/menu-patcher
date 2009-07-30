@@ -2,6 +2,7 @@
 #include <ogcsys.h>
 
 #include "gui.h"
+#include "menu.h"
 #include "restart.h"
 #include "sysmenu.h"
 #include "sys.h"
@@ -36,6 +37,9 @@ int main(int argc, char **argv)
 		printf("[+] Custom IOS could not be loaded! (ret = %d)\n", ret);
 		goto out;
 	}
+
+	/* Content device menu */
+	Menu_ContentDevice();
 
 	/* Launch System Menu */
 	Sysmenu_Launch();
