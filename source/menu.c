@@ -32,7 +32,7 @@ void Menu_ContentDevice(void)
 		/* Selected device */
 		dev = &devList[selected];
 
-		printf("\t>> Select NAND emulator device: < %s >\n\n", dev->name);
+		printf("\t>> Select content override device: < %s >\n\n", dev->name);
 
 		printf("\t   Press LEFT/RIGHT to change the selected device.\n\n");
 

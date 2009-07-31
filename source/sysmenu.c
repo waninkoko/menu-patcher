@@ -27,8 +27,6 @@ typedef struct {
 } dolhdr;
 
 /* Constants */
-#define SYSMENU_ADDR		0x8132FF80
-#define SYSMENU_LEN		0x380000
 #define SYSMENU_TITLEID		0x100000002ULL
 
 
@@ -57,43 +55,69 @@ s32 __Sysmenu_Load(u32 *entry, u16 index)
 	/* Read content */
 	ret = ES_ReadContent(fd, (u8 *)&dol, sizeof(dolhdr));
 	if (ret < 0)
-		return ret;
+		goto out;
 
+	/* Clear BSS */
 	memset(dol.bssmem, 0, dol.bsssize);
 
 	/* Read data */
-	for (cnt = 0; cnt < 7; cnt++)
-		if (dol.textoff[cnt] >= sizeof(dolhdr)) {
-			ret = ES_SeekContent(fd, dol.textoff[cnt], 0);
-			if (ret != dol.textoff[cnt])
-				return -1;
+	for (cnt = 0; cnt < 7; cnt++) {
+		u32 offset = dol.textoff[cnt];
 
-			ret = ES_ReadContent(fd, dol.textmem[cnt], dol.textsize[cnt]);
-			if (ret != dol.textsize[cnt])
-				return -1;
+		/* Read section */
+		if (offset >= sizeof(dolhdr)) {
+			void *buffer = dol.textmem[cnt];
+			u32   len    = dol.textsize[cnt];
+
+			/* Seek */
+			ret = ES_SeekContent(fd, offset, 0);
+			if (ret < 0)
+				goto out;
+
+			/* Read */
+			ret = ES_ReadContent(fd, buffer, len);
+			if (ret < 0)
+				goto out;
+
+			/* Patch */
+			__Sysmenu_Patch(buffer, len);
 		}
+	}
 
-	for (cnt = 0; cnt < 11; cnt++)
-		if (dol.dataoff[cnt] >= sizeof(dolhdr)) {
-			ret = ES_SeekContent(fd, dol.dataoff[cnt], 0);
-			if (ret != dol.dataoff[cnt])
-				return -1;
+	for (cnt = 0; cnt < 11; cnt++) {
+		u32 offset = dol.dataoff[cnt];
 
-			ret = ES_ReadContent(fd, dol.datamem[cnt], dol.datasize[cnt]);
-			if (ret != dol.datasize[cnt])
-				return -1;
+		/* Read section */
+		if (offset >= sizeof(dolhdr)) {
+			void *buffer = dol.datamem[cnt];
+			u32   len    = dol.datasize[cnt];
+
+			/* Seek */
+			ret = ES_SeekContent(fd, offset, 0);
+			if (ret < 0)
+				goto out;
+
+			/* Read */
+			ret = ES_ReadContent(fd, buffer, len);
+			if (ret < 0)
+				goto out;
+
+			/* Patch */
+			__Sysmenu_Patch(buffer, len);
 		}
-
-	/* Close content */
-	ES_CloseContent(fd);
+	}
 
 	/* Set entry point */
 	*entry = dol.entry;
 
-	return 0;
+out:
+	/* Close content */
+	ES_CloseContent(fd);
+
+	return ret;
 }
 
-s32 __Sysmenu_BootIndex(void)
+s32 __Sysmenu_BootIndex(u16 *index)
 {
 	signed_blob *p_tmd = NULL;
 	tmd      *tmd_data = NULL;
@@ -104,26 +128,27 @@ s32 __Sysmenu_BootIndex(void)
 	/* Retrieve TMD */
 	ret = Title_GetTMD(SYSMENU_TITLEID, &p_tmd, &len);
 	if (ret < 0)
-		goto out;
+		return ret;
 
 	/* TMD data */
 	tmd_data = (tmd *)SIGNATURE_PAYLOAD(p_tmd);
 
 	/* Get boot index */
-	ret = tmd_data->boot_index;
+	*index = tmd_data->boot_index;
 
-out:
 	/* Free memory */
 	if (p_tmd)
 		free(p_tmd);
 
-	return ret;
+	return 0;
 }
 
 
 s32 Sysmenu_Launch(void)
 {
-	u32 entry, index;
+	u16 index;
+	u32 entry;
+
 	s32 ret;
 
 	/* Read current state flags */
@@ -144,13 +169,11 @@ s32 Sysmenu_Launch(void)
 	fflush(stdout);
 
 	/* Get system menu boot index */
-	ret = __Sysmenu_BootIndex();
+	ret = __Sysmenu_BootIndex(&index);
 	if (ret < 0) {
 		printf(" ERROR! Could not retrieve boot index! (ret = %d)\n", ret);
 		return ret;
 	}
-
-	index = ret;
 
 	/* Load system menu */
 	ret = __Sysmenu_Load(&entry, index);
@@ -159,9 +182,6 @@ s32 Sysmenu_Launch(void)
 		return ret;
 	}
 
-	/* Patch system menu */
-	__Sysmenu_Patch((u8 *)SYSMENU_ADDR, SYSMENU_LEN);
-
 	/* Set state flags */
 	ret = State_ReturnToMenu();
 	if (ret < 0) {
@@ -169,8 +189,8 @@ s32 Sysmenu_Launch(void)
 		return ret;
 	}
 
+	/* Shutdown system */
 	SYS_ResetSystem(SYS_SHUTDOWN, 0, 0);
-	DCFlushRange((u8 *)SYSMENU_ADDR, SYSMENU_LEN);
 
 	/* Jump to entry point */
 	unstub_start(entry);
