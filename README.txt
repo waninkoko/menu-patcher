@@ -1,5 +1,5 @@
 +--------------------------------+
-|   [+] MenuPatcher v1.1         |
+|   [+] MenuPatcher v1.2         |
 |       developed by Waninkoko   |
 +--------------------------------+
 |     wwww.teknoconsolas.info    |
